@@ -358,6 +358,7 @@ class Template {
 		$default_sections = array(
 			'description',
 			'screenshots',
+			'preview',
 			'blocks',
 			'stats',
 			'support',
@@ -398,6 +399,11 @@ class Template {
 
 				case 'screenshots':
 					$title = _x( 'Screenshots', 'plugin tab title', 'wporg-plugins' );
+					$url   = trailingslashit( $permalink ) . $section_slug . '/';
+					break;
+
+				case 'preview':
+					$title = _x( 'Preview', 'plugin tab title', 'wporg-plugins' );
 					$url   = trailingslashit( $permalink ) . $section_slug . '/';
 					break;
 

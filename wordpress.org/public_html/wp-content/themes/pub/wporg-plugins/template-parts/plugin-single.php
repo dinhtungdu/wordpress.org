@@ -62,6 +62,15 @@ $plugin_title = $is_closed ? $post->post_name : get_the_title();
 				<?php esc_html_e( 'Details', 'wporg-plugins' ); ?>
 			</a>
 			<a 
+				id="tab-button-block"
+				class="tablinks"
+				role="tab"
+				aria-controls="tab-block"
+				href="#block"
+			>
+				<?php esc_html_e( 'Block', 'wporg-plugins' ); ?>
+			</a>
+			<a 
 				id="tab-button-reviews"
 				class="tablinks"
 				role="tab"
@@ -94,55 +103,61 @@ $plugin_title = $is_closed ? $post->post_name : get_the_title();
 		</div>
 		<script type="text/javascript">if ( '#changelog' == window.location.hash ) { window.location.hash = '#developers'; }</script>
 	<?php endif; ?>
+	<div class="tab-content-wrapper">
+		<div class="entry-content">
+			<?php
+			if ( get_query_var( 'plugin_advanced' ) ) :
+				get_template_part( 'template-parts/section-advanced' );
+			else :
+				$plugin_sections = Template::get_plugin_sections();
 
-	<div class="entry-content">
-		<?php
-		if ( get_query_var( 'plugin_advanced' ) ) :
-			get_template_part( 'template-parts/section-advanced' );
-		else :
-			$plugin_sections = Template::get_plugin_sections();
+				foreach ( array( 'description', 'screenshots', 'blocks', 'preview', 'installation', 'faq', 'reviews', 'developers', 'changelog' ) as $section_slug ) :
+					$section_content = '';
 
-			foreach ( array( 'description', 'screenshots', 'blocks', 'installation', 'faq', 'reviews', 'developers', 'changelog' ) as $section_slug ) :
-				$section_content = '';
+					if ( 'description' === $section_slug && $is_closed ) {
+						// Don't show the description for closed plugins, show a notice instead.
+						$section_content = get_closed_plugin_notice();
 
-				if ( 'description' === $section_slug && $is_closed ) {
-					// Don't show the description for closed plugins, show a notice instead.
-					$section_content = get_closed_plugin_notice();
-
-				} elseif ( 'blocks' === $section_slug ) {
-					$section_content = get_post_meta( get_the_ID(), 'all_blocks', true );
-				} elseif ( ! in_array( $section_slug, [ 'screenshots', 'installation', 'faq', 'changelog' ], true ) || ! $is_closed ) {
-					if ( isset( $content[ $section_slug ] ) ) {
-						$section_content = trim( apply_filters( 'the_content', $content[ $section_slug ], $section_slug ) );
+					} elseif ( 'blocks' === $section_slug ) {
+						$section_content = get_post_meta( get_the_ID(), 'all_blocks', true );
+					} elseif ( 'preview' === $section_slug ) {
+						$block_files = get_post_meta( get_the_ID(), 'block_files', true );
+						echo '<script type="text/javascript" src="/plugins/wp-includes/js/dist/block-library.js?ver=2.0.1"></script>';
+						echo '<div id="preview" data-script-urls="' . implode( ',', $block_files ) . '">preview</div>';
+					} elseif ( ! in_array( $section_slug, [ 'screenshots', 'installation', 'faq', 'changelog' ], true ) || ! $is_closed ) {
+						if ( isset( $content[ $section_slug ] ) ) {
+							$section_content = trim( apply_filters( 'the_content', $content[ $section_slug ], $section_slug ) );
+						}
 					}
-				}
 
-				if ( empty( $section_content ) ) {
-					continue;
-				}
+					if ( empty( $section_content ) ) {
+						continue;
+					}
 
-				$section = wp_list_filter( $plugin_sections, array( 'slug' => $section_slug ) );
-				$section = array_pop( $section );
+					$section = wp_list_filter( $plugin_sections, array( 'slug' => $section_slug ) );
+					$section = array_pop( $section );
 
-				if ( 'blocks' === $section_slug ) {
-					get_template_part( 'template-parts/section-blocks' );
-				} else {
-					get_template_part( 'template-parts/section' );
-				}
-			endforeach;
-		endif; // plugin_advanced.
-		?>
-	</div><!-- .entry-content -->
+					if ( 'blocks' === $section_slug ) {
+						get_template_part( 'template-parts/section-blocks' );
+					}  elseif ( 'preview' === $section_slug ) {
+					} else {
+						get_template_part( 'template-parts/section' );
+					}
+				endforeach;
+			endif; // plugin_advanced.
+			?>
+		</div><!-- .entry-content -->
 
-	<div class="entry-meta">
-		<?php
-		if ( get_query_var( 'plugin_advanced' ) && ( ! $is_closed || current_user_can( 'plugin_admin_view', $post ) ) ) {
-			get_template_part( 'template-parts/plugin-sidebar', 'advanced' );
-		} elseif ( $is_closed ) {
-			get_template_part( 'template-parts/plugin-sidebar', 'closed' );
-		} else {
-			get_template_part( 'template-parts/plugin-sidebar' );
-		}
-		?>
-	</div><!-- .entry-meta -->
+		<div class="entry-meta">
+			<?php
+			if ( get_query_var( 'plugin_advanced' ) && ( ! $is_closed || current_user_can( 'plugin_admin_view', $post ) ) ) {
+				get_template_part( 'template-parts/plugin-sidebar', 'advanced' );
+			} elseif ( $is_closed ) {
+				get_template_part( 'template-parts/plugin-sidebar', 'closed' );
+			} else {
+				get_template_part( 'template-parts/plugin-sidebar' );
+			}
+			?>
+		</div><!-- .entry-meta -->
+	</div>
 </article><!-- #post-## -->

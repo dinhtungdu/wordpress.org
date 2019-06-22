@@ -11,7 +11,7 @@ global $section, $section_slug, $section_content;
 
 $prefix = in_array( $section_slug, array( 'screenshots', 'faq', 'blocks' ), true ) ? '' : 'tab-';
 
-$classes = [ 'plugin-' . $section_slug, 'section' ];
+$classes = [ 'plugin-' . $section_slug, 'section', 'tabcontent' ];
 $classes = implode( ' ', $classes );
 ?>
 

@@ -15,7 +15,7 @@ export const Reviews = ( { content, numberFormat, numRatings, slug, translate } 
 			<div id="reviews" className="section">
 				<div className="plugin-reviews">
 					<h2>{ translate( 'Reviews' ) }</h2>
-					<div dangerouslySetInnerHTML={ { __html: content } }/>
+					<div dangerouslySetInnerHTML={ { __html: content } } />
 				</div>
 			</div>
 			<a

@@ -1,6 +1,11 @@
 .type-plugin {
 	@extend .clear;
 
+	.tab-content-wrapper {
+		display: flex;
+		flex-wrap: wrap;
+	}
+
 	.plugin-notice {
 		margin-top: 0;
 	}
@@ -77,12 +82,13 @@
 
 	.entry-content {
 		padding: 0 ms( 4 );
-		max-width: 48rem;
+		flex-basis: 100%;
+		flex-grow: 1;
 
 		@media screen and ( min-width: $ms-breakpoint ) {
 			float: left;
 			padding: 0;
-			width: 65%;
+			flex-basis: 70%;
 		}
 
 		> div {
@@ -109,6 +115,7 @@
 
 	.entry-meta {
 		padding: 0 ms( 4 );
+		flex-basis: 100%;
 	}
 
 
@@ -122,7 +129,8 @@
 
 		.entry-meta {
 			float: right;
-			width: 30%;
+			flex-basis: 30%;
+			border-left: 36px solid transparent;
 		}
 	}
 }

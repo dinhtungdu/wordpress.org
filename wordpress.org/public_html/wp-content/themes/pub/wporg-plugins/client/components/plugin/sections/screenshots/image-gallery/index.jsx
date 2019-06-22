@@ -1,4 +1,5 @@
-import React from "react";
+import React from 'react';
+import PropTypes from 'prop-types';
 
 const MIN_INTERVAL = 500;
 
@@ -588,23 +589,23 @@ export default class ImageGallery extends React.Component {
 }
 
 ImageGallery.propTypes = {
-	items: React.PropTypes.array.isRequired,
-	showNav: React.PropTypes.bool,
-	lazyLoad: React.PropTypes.bool,
-	infinite: React.PropTypes.bool,
-	showIndex: React.PropTypes.bool,
-	showThumbnails: React.PropTypes.bool,
-	slideOnThumbnailHover: React.PropTypes.bool,
-	disableThumbnailScroll: React.PropTypes.bool,
-	disableArrowKeys: React.PropTypes.bool,
-	defaultImage: React.PropTypes.string,
-	indexSeparator: React.PropTypes.string,
-	startIndex: React.PropTypes.number,
-	slideInterval: React.PropTypes.number,
-	onClick: React.PropTypes.func,
-	onImageLoad: React.PropTypes.func,
-	onImageError: React.PropTypes.func,
-	renderItem: React.PropTypes.func,
+	items: PropTypes.array,
+	showNav: PropTypes.bool,
+	lazyLoad: PropTypes.bool,
+	infinite: PropTypes.bool,
+	showIndex: PropTypes.bool,
+	showThumbnails: PropTypes.bool,
+	slideOnThumbnailHover: PropTypes.bool,
+	disableThumbnailScroll: PropTypes.bool,
+	disableArrowKeys: PropTypes.bool,
+	defaultImage: PropTypes.string,
+	indexSeparator: PropTypes.string,
+	startIndex: PropTypes.number,
+	slideInterval: PropTypes.number,
+	onClick: PropTypes.func,
+	onImageLoad: PropTypes.func,
+	onImageError: PropTypes.func,
+	renderItem: PropTypes.func,
 };
 
 ImageGallery.defaultProps = {

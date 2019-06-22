@@ -2,12 +2,12 @@
  * External dependencies.
  */
 import React from 'react';
-import { render } from '@wordpress/element';
+import { render } from 'react-dom';
+
 /**
  * Internal dependencies.
  */
 import Screenshots from 'components/plugin/sections/screenshots';
-import BlockPreview from 'components/plugin/sections/block-preview';
 
 // Temporary hack to use the srceenshot viewer without the full React client
 const elements = document.querySelectorAll( '#screenshots figure' );
@@ -22,7 +22,7 @@ for ( let i = 0; i < elements.length; i++ ) {
 }
 
 if ( images.length > 0 ) {
-	const temp = document.createElement( 'div' );
+	const temp = document.createElement( 'div');
 	const container = document.querySelector( '.entry-content' );
 
 	render(
@@ -31,25 +31,4 @@ if ( images.length > 0 ) {
 	);
 
 	container.replaceChild( temp.querySelector( '#screenshots' ), document.getElementById( 'screenshots' ) );
-
-	// On page load, we want to show or hide <Screenshots /> after it is rendered, based on the #hash in url.
-	if ( typeof window.showUrlHashTargetTab === 'function' ) {
-		window.showUrlHashTargetTab();
-	}
 }
-
-const temp = document.createElement( 'div' );
-const scriptUrlsString = document.getElementById( 'preview' ).getAttribute( 'data-script-urls' );
-const scriptUrls = scriptUrlsString.split( ',' );
-
-render(
-	<BlockPreview scriptUrls={ scriptUrls } />,
-	temp
-);
-
-setTimeout( () => {
-	window.document.querySelector(
-		'.entry-content' ).replaceChild( temp.querySelector( '#preview' ),
-		document.getElementById( 'preview' )
-	);
-} );

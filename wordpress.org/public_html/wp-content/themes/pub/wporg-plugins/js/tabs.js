@@ -15,6 +15,12 @@
 		for ( var j = 0; j < widgets.length; j++ ) {
 			$( '#main' ).find( '.entry-meta .widget.' + widgets[ j ] ).css( 'display', 'block' );
 		}
+
+		if ( widgets.length === 0 ) {
+			$( '#main' ).find( '.entry-meta' ).css( 'display', 'none' );
+		} else {
+			$( '#main' ).find( '.entry-meta' ).css( 'display', 'block' );
+		}
 	};
 
 	var openTargetTab = function( targetTab ) {
@@ -33,6 +39,11 @@
 				'tab-button-developers',
 				[ 'tab-developers', 'tab-changelog' ],
 				[ 'plugin-meta', 'plugin-ratings', 'plugin-support' ] );
+		} else if ( targetTab === 'block' ) {
+			openTab(
+				'tab-button-block',
+				[ 'preview', 'blocks' ],
+				[ ] );
 		} else {
 			openTab(
 				'tab-button-description',
@@ -55,6 +66,10 @@
 
 	$( '#tab-button-developers' ).bind( 'click', function() {
 		openTargetTab( 'developers' );
+	} );
+
+	$( '#tab-button-block' ).bind( 'click', function() {
+		openTargetTab( 'block' );
 	} );
 
 	window.showUrlHashTargetTab = function() {

@@ -23,6 +23,7 @@
     "babel-preset-es2015": "^6.18.0",
     "babel-preset-react": "^6.11.1",
     "babel-preset-stage-2": "^6.18.0",
+    "css-loader": "^2.1.1",
     "cssnano": "^3.10.0",
     "eslint": "^3.12.2",
     "eslint-plugin-react": "^6.8.0",
@@ -42,8 +43,8 @@
     "node-sass": "^4.9.3",
     "pixrem": "^3.0.2",
     "postcss": "^6.0.14",
-    "react": "^15.2.1",
-    "react-dom": "^15.2.1",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6",
     "react-redux": "^4.4.5",
     "react-router": "^2.5.2",
     "react-router-redux": "^4.0.5",
@@ -52,12 +53,22 @@
     "redux-router": "^2.1.2",
     "redux-thunk": "^2.1.0",
     "rtlcss": "^2.2.1",
+    "style-loader": "^0.23.1",
     "webpack": "^1.13.1",
     "webpack-dev-server": "^1.14.1"
   },
   "dependencies": {
+    "@wordpress/block-editor": "^2.1.0",
+    "@wordpress/block-library": "^2.6.0",
+    "@wordpress/components": "^8.0.0",
+    "@wordpress/compose": "^3.3.0",
+    "@wordpress/data": "^4.5.0",
+    "@wordpress/edit-post": "^3.3.6",
     "i18n-calypso": "^1.7.0",
     "json-loader": "^0.5.4",
+    "prop-types": "^15.7.2",
+    "react-autosize-textarea": "^7.0.0",
+    "react-load-script": "0.0.6",
     "wpapi": "^1.2.1"
   }
 }
