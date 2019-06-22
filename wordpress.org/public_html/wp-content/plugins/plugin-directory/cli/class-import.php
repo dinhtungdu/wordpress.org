@@ -177,7 +177,8 @@ class Import {
 			delete_post_meta( $plugin->ID, 'all_blocks' );
 		}
 
-		if ( count( $block_files ) ) {
+		// Only store block_files for plugins in the block directory
+		if ( count( $block_files ) && has_term( 'block', 'plugin_section', $plugin->ID ) ) {
 			update_post_meta( $plugin->ID, 'block_files', $block_files );
 		} else {
 			delete_post_meta( $plugin->ID, 'block_files' );
@@ -435,15 +436,12 @@ class Import {
 		$build_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build" ) ?: array();
 
 		foreach ( $dist_files as $file ) {
-			$block_files[] = 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/dist/" . $file;
+			$block_files[] = '/trunk/dist/' . $file;
 		}
 
 		foreach ( $build_files as $file ) {
-			$block_files[] = 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build/" . $file;
+			$block_files[] = '/trunk/build/' . $file;
 		}
-		
-		echo json_encode( $block_files );
-
 
 		return compact( 'readme', 'stable_tag', 'tmp_dir', 'plugin_headers', 'assets', 'tagged_versions', 'blocks', 'block_files' );
 	}
