@@ -125,7 +125,6 @@ $plugin_title = $is_closed ? $post->post_name : get_the_title();
 						foreach ( $block_files as $i => $block_file ) {
 							$block_files[ $i ] = esc_url( 'https://ps.w.org/' . $post->post_name . $block_file ); //FIXME: better validation and sanitizing
 						}
-						wp_enqueue_script( 'block-library', '/wp-includes/js/dist/block-library.js', array( 'wp-blocks', 'wp-i18n', 'wp-element', 'wp-editor' ), '2.0.1', true );
 						echo '<div id="preview" data-script-urls="' . implode( ',', $block_files ) . '">preview</div>';
 					} elseif ( ! in_array( $section_slug, [ 'screenshots', 'installation', 'faq', 'changelog' ], true ) || ! $is_closed ) {
 						if ( isset( $content[ $section_slug ] ) ) {

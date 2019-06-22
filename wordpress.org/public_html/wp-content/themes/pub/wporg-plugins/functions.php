@@ -85,6 +85,9 @@ function scripts() {
 		wp_enqueue_script( 'wporg-plugins-popover', get_stylesheet_directory_uri() . '/js/popover.js', array( 'jquery' ), '20171002', true );
 		wp_enqueue_script( 'wporg-plugins-faq', get_stylesheet_directory_uri() . '/js/section-faq.js', array( 'jquery' ), '20180131', true );
 		wp_enqueue_script( 'wporg-plugins-tabs', get_stylesheet_directory_uri() . '/js/tabs.js', array(), '20190501', true );
+		if ( has_term( 'block', 'plugin_section' ) ) {
+			wp_enqueue_script( 'block-library', '/wp-includes/js/dist/block-library.js', array( 'wp-blocks', 'wp-i18n', 'wp-element', 'wp-editor' ), '2.0.1', true );
+		}
 	}
 
 	if ( ! is_404() ) {
