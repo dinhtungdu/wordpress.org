@@ -434,6 +434,7 @@ class Import {
 		$block_files = array();
 		$dist_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/dist" ) ?: array();
 		$build_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build" ) ?: array();
+		$trunk_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk" ) ?: array();
 
 		foreach ( $dist_files as $file ) {
 			$block_files[] = '/trunk/dist/' . $file;
@@ -441,6 +442,12 @@ class Import {
 
 		foreach ( $build_files as $file ) {
 			$block_files[] = '/trunk/build/' . $file;
+		}
+
+		foreach ( $trunk_files as $file ) {
+			if ( preg_match( '!(.*\.css$)!i', $file ) ) {
+				$block_files[] = '/trunk/' . $file;
+			}
 		}
 
 		return compact( 'readme', 'stable_tag', 'tmp_dir', 'plugin_headers', 'assets', 'tagged_versions', 'blocks', 'block_files' );

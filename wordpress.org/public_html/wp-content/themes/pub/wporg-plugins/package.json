@@ -64,6 +64,7 @@
     "@wordpress/compose": "^3.3.0",
     "@wordpress/data": "^4.5.0",
     "@wordpress/edit-post": "^3.3.6",
+    "@wordpress/format-library": "^1.6.0",
     "i18n-calypso": "^1.7.0",
     "json-loader": "^0.5.4",
     "prop-types": "^15.7.2",
