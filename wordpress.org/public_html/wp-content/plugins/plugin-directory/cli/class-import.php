@@ -542,13 +542,22 @@ class Import {
 		$asset_base_url = 'https://raw.githubusercontent.com/' . $github_repo . '/assets/';
 		if ( $github_assets && isset( $github_assets->tree ) ) {
 			foreach ( $github_assets->tree as $file ) {
+				// We can't hotlink or CDN .svg's from Github at present, so we'll import it directly.
+				$svg_data = false;
+				if ( '.svg' == substr( $file->path, -4 ) ) {
+					$blob_data = $this->query_github_api( $github_repo, '/git/blobs/' . $file->sha );
+					if ( 'base64' == $blob_data->encoding ) {
+						$svg_data = str_replace( "\n", '', $blob_data->content );
+					} else {
+						$svg_data = base64_encode( $blob_data->content );
+					}
+				}
+
 				$assets[] = array(
 					'filename' => $file->path,
-					'filesize' => $file->size,
 					'revision' => $file->sha, // Close enougn, it's only a cache-buster afterall.
-					'author'   => false,
-					'date'     => false,
-					'location' => 'github_asset',
+					'location' => $svg_data ? 'inline_asset' : 'custom_asset',
+					'data'     => $svg_data,
 				);
 			}
 		}
@@ -619,10 +628,11 @@ class Import {
 			$filename   = $asset['filename'];
 			$revision   = $asset['revision'];
 			$location   = $asset['location'];
+			$data       = isset( $asset['data'] )   ? $asset['data']     : false;
 			$resolution = isset( $m['resolution'] ) ? $m['resolution']   : false;
 			$locale     = isset( $m['locale'] )     ? $m['locale']       : false;
 
-			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale');
+			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale', 'data' );
 		}
 
 		// Find screenshots in the stable plugin folder (but don't overwrite /assets/)

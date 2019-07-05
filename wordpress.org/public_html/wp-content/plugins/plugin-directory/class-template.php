@@ -626,10 +626,14 @@ class Template {
 
 			// Screenshots in the plugin folder - /plugins/plugin-name/screenshot-1.png.
 			$format = 'https://plugins.svn.wordpress.org/%1$s/trunk/%2$s';
-		} elseif ( $custom_location = get_post_meta( $post->ID, 'asset_base_url', true ) ) {
+		} elseif ( 'custom_asset' == $asset['location'] && ( $custom_location = get_post_meta( $post->ID, 'asset_base_url', true ) ) ) {
 
 			// Assets are in a custom location - most likely Github. This doesn't include the Plugin Slug.
 			$format = rtrim( $custom_location, '/' ) . '/%2$s';
+		} elseif ( 'inline_asset' == $asset['location'] && !empty( $asset['data'] ) ) {
+
+			// The Data has been stored in the DB, as it's externally hosted.
+			return 'data:image/svg+xml;base64,' . esc_attr( $asset['data'] );
 		} else {
 
 			// Images in the assets folder - /plugin-name/assets/screenshot-1.png.
