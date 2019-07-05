@@ -411,51 +411,6 @@ class Import {
 	}
 
 	/**
-	 * A quick and hacky function to query Githubs API.
-	 *
-	 * @param string $repo      The Github repo to query.
-	 * @param string $endpoint  The Github API Endpoint to query.
-	 * @param string $namespace The API Namespace you're requesting. Defaults to the 'repos' namespace.s
-	 *
-	 * @return object JSON Decoded Github API response. Very little error handling. Expect Exceptions.
-	 */
-	protected function query_github_api( $repo, $endpoint = '', $namespace = 'repos' ) {
-		$opts = [
-			'user-agent' => 'WordPress.org Plugin Repository; https://wordpress.org/plugins/',
-		];
-
-		$url = 'https://api.github.com/' . trim( $namespace, '/' ) . '/' . trim( $repo, '/' ) . rtrim( '/' . ltrim( $endpoint, '/' ), '/' );
-
-		$request = wp_remote_get( $url, $opts );
-
-		// TODO:
-		// - No follow redirects, catch a redirect which means the source of the github has changed.
-		// - Error handling, detect error returns.
-
-		if ( ! $request ) {
-			throw new Exception( 'Github API unavailable' );
-		}
-		if ( is_wp_error( $request ) ) {
-			throw new Exception( 'Github API unavailable: ' . $request->get_error_code() . ' ' . $request->get_error_message() );
-		}
-
-		$api = json_decode( wp_remote_retrieve_body( $request ) );
-		if ( ! $api ) {
-			throw new Exception( 'Github API unavailable.' );
-		}
-
-		if ( 200 !== wp_remote_retrieve_response_code( $request ) && isset( $api->message ) ) {
-			throw new Exception( sprintf(
-				'Github API Error: %s %s',
-				wp_remote_retrieve_response_code( $request ),
-				$api->message
-			) );
-		}
-
-		return $api;
-	}
-
-	/**
 	 * Export a plugin from Github and determines the correct set of files to parse.
 	 *
 	 * @throws \Exception
@@ -478,9 +433,9 @@ class Import {
 			throw new Exception( 'Invalid Github Source specified.' );
 		}
 
-		$github_api      = $this->query_github_api( $github_repo );
-		$github_releases = $this->query_github_api( $github_repo, '/releases' ); // Tagged Github releases
-		$github_assets   = $this->query_github_api( $github_repo, '/git/trees/assets' ); // Might not actually have the assets branch.
+		$github_api      = Tools::query_github_api( $github_repo );
+		$github_releases = Tools::query_github_api( $github_repo, '/releases' ); // Tagged Github releases
+		$github_assets   = Tools::query_github_api( $github_repo, '/git/trees/assets' ); // Might not actually have the assets branch.
 
 		// List of tagged releases
 		$tagged_versions = wp_list_pluck(
@@ -540,7 +495,7 @@ class Import {
 				// We can't hotlink or CDN .svg's from Github at present, so we'll import it directly.
 				$svg_data = false;
 				if ( '.svg' == substr( $file->path, -4 ) ) {
-					$blob_data = $this->query_github_api( $github_repo, '/git/blobs/' . $file->sha );
+					$blob_data = Tools::query_github_api( $github_repo, '/git/blobs/' . $file->sha );
 					if ( 'base64' == $blob_data->encoding ) {
 						$svg_data = str_replace( "\n", '', $blob_data->content );
 					} else {

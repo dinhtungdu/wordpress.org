@@ -537,4 +537,49 @@ class Tools {
 
 		return $users;
 	}
+
+	/**
+	 * A quick and hacky function to query Githubs API.
+	 *
+	 * @param string $repo      The Github repo to query.
+	 * @param string $endpoint  The Github API Endpoint to query.
+	 * @param string $namespace The API Namespace you're requesting. Defaults to the 'repos' namespace.s
+	 *
+	 * @return object JSON Decoded Github API response. Very little error handling. Expect Exceptions.
+	 */
+	public function query_github_api( $repo, $endpoint = '', $namespace = 'repos' ) {
+		$opts = [
+			'user-agent' => 'WordPress.org Plugin Repository; https://wordpress.org/plugins/',
+		];
+
+		$url = 'https://api.github.com/' . trim( $namespace, '/' ) . '/' . trim( $repo, '/' ) . rtrim( '/' . ltrim( $endpoint, '/' ), '/' );
+
+		$request = wp_remote_get( $url, $opts );
+
+		// TODO:
+		// - No follow redirects, catch a redirect which means the source of the github has changed.
+		// - Error handling, detect error returns.
+
+		if ( ! $request ) {
+			throw new Exception( 'Github API unavailable' );
+		}
+		if ( is_wp_error( $request ) ) {
+			throw new Exception( 'Github API unavailable: ' . $request->get_error_code() . ' ' . $request->get_error_message() );
+		}
+
+		$api = json_decode( wp_remote_retrieve_body( $request ) );
+		if ( ! $api ) {
+			throw new Exception( 'Github API unavailable.' );
+		}
+
+		if ( 200 !== wp_remote_retrieve_response_code( $request ) && isset( $api->message ) ) {
+			throw new Exception( sprintf(
+				'Github API Error: %s %s',
+				wp_remote_retrieve_response_code( $request ),
+				$api->message
+			) );
+		}
+
+		return $api;
+	}
 }
