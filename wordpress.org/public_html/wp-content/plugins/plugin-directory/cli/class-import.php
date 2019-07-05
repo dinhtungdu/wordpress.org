@@ -81,6 +81,7 @@ class Import {
 
 		$readme          = $data['readme'];
 		$assets          = $data['assets'];
+		$asset_base_url  = $data['asset_base_url'];
 		$headers         = $data['plugin_headers'];
 		$stable_tag      = $data['stable_tag'];
 		$tagged_versions = $data['tagged_versions'];
@@ -189,6 +190,12 @@ class Import {
 		update_post_meta( $plugin->ID, 'assets_banners',     wp_slash( $assets['banner'] ) );
 		update_post_meta( $plugin->ID, 'last_updated',       wp_slash( $plugin->post_modified_gmt ) );
 		update_post_meta( $plugin->ID, 'plugin_status',      wp_slash( $plugin->post_status ) );
+
+		if ( $asset_base_url ) {
+			update_post_meta( $plugin->ID, 'asset_base_url', wp_slash( $asset_base_url ) );
+		} else {
+			delete_post_meta( $plugin->ID, 'asset_base_url' );
+		}
 
 		// Calculate the 'plugin color' from the average color of the banner if provided. This is used for fallback icons.
 		$banner_average_color = '';
@@ -402,7 +409,10 @@ class Import {
 			$repo_assets = array();
 		}
 
-		return compact( 'stable_tag', 'tagged_versions', 'repo_assets' );
+		// Inherit the defaults - SVN
+		$asset_base_url = false;
+
+		return compact( 'stable_tag', 'tagged_versions', 'repo_assets', 'asset_base_url' );
 	}
 
 	/**
@@ -529,6 +539,7 @@ class Import {
 
 		// Get a list of the assets - Could also use `git ls-tree -l origin/assets`
 		$assets = false;
+		$asset_base_url = 'https://raw.githubusercontent.com/' . $github_repo . '/assets/';
 		if ( $github_assets && isset( $github_assets->tree ) ) {
 			foreach ( $github_assets->tree as $file ) {
 				$assets[] = array(
@@ -538,12 +549,11 @@ class Import {
 					'author'   => false,
 					'date'     => false,
 					'location' => 'github_asset',
-					'url'      => 'https://raw.githubusercontent.com/' . $github_repo . '/assets/' . $file->path,
 				);
 			}
 		}
 
-		return compact( 'stable_tag', 'tagged_versions', 'assets' );
+		return compact( 'stable_tag', 'tagged_versions', 'assets', 'asset_base_url' );
 	}
 
 	/**
@@ -577,6 +587,7 @@ class Import {
 		$stable_tag      = $export['stable_tag'];
 		$tagged_versions = $export['tagged_versions'];
 		$repo_assets     = $export['assets'];
+		$asset_base_url  = $export['asset_base_url'];
 		if ( ! $repo_assets ) {
 			$repo_assets = array();
 		}
@@ -608,11 +619,10 @@ class Import {
 			$filename   = $asset['filename'];
 			$revision   = $asset['revision'];
 			$location   = $asset['location'];
-			$url        = $asset['url'];
 			$resolution = isset( $m['resolution'] ) ? $m['resolution']   : false;
 			$locale     = isset( $m['locale'] )     ? $m['locale']       : false;
 
-			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale', 'url' );
+			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale');
 		}
 
 		// Find screenshots in the stable plugin folder (but don't overwrite /assets/)
@@ -663,7 +673,7 @@ class Import {
 			$block_files[] = '/trunk/build/' . $file;
 		}
 
-		return compact( 'readme', 'stable_tag', 'tmp_dir', 'plugin_headers', 'assets', 'tagged_versions', 'blocks', 'block_files' );
+		return compact( 'readme', 'stable_tag', 'tmp_dir', 'plugin_headers', 'assets', 'asset_base_url', 'tagged_versions', 'blocks', 'block_files' );
 	}
 
 	/**
