@@ -627,7 +627,7 @@ class Import {
 
 				$assets[] = array(
 					'filename' => $file->path,
-					'revision' => $file->sha, // Close enougn, it's only a cache-buster afterall.
+					'revision' => $file->sha, // Close enough, it's only used as a cache-buster.
 					'location' => $svg_data ? 'inline_asset' : 'custom_asset',
 					'data'     => $svg_data,
 				);
