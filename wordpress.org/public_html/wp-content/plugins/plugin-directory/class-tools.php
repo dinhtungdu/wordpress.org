@@ -541,13 +541,17 @@ class Tools {
 	/**
 	 * A quick and hacky function to query Githubs API.
 	 *
+	 * @throws \Exception
+	 *
+	 * @static
+	 *
 	 * @param string $repo      The Github repo to query.
 	 * @param string $endpoint  The Github API Endpoint to query.
 	 * @param string $namespace The API Namespace you're requesting. Defaults to the 'repos' namespace.s
 	 *
 	 * @return object JSON Decoded Github API response. Very little error handling. Expect Exceptions.
 	 */
-	public function query_github_api( $repo, $endpoint = '', $namespace = 'repos' ) {
+	public static function query_github_api( $repo, $endpoint = '', $namespace = 'repos' ) {
 		$opts = [
 			'user-agent' => 'WordPress.org Plugin Repository; https://wordpress.org/plugins/',
 		];
