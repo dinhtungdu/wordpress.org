@@ -643,7 +643,17 @@ class Template {
 		);
 
 		if ( $cdn ) {
-			$url = str_replace( 'plugins.svn.wordpress.org', 'ps.w.org', $url );
+			if ( false !== stripos( $url, 'plugins.svn.wordpress.org' ) ) {
+				$url = str_replace( 'plugins.svn.wordpress.org', 'ps.w.org', $url );
+			} elseif ( false === stripos( $url, '.svg' ) ) {
+				// Photonise it.
+				if ( function_exists( 'jetpack_photon_url' ) ) {
+					$url = jetpack_photon_url( $url );
+				} else {
+					// For when Jetpack isn't available - local dev
+					$url = 'https://i0.wp.com/' . preg_replace( '!^https://!i', '', $url );
+				}
+			}
 		}
 
 		// Add a cache-buster based on the file revision.
