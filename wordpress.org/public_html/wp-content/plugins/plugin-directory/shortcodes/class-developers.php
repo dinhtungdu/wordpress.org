@@ -91,7 +91,7 @@ class Developers {
 		$github_repo = get_post_meta( $post->ID, 'github_source', true );
 		if ( $github_repo && 'svn' !== $github_repo ) {
 			$output .= '<p>' . sprintf(
-				/* translators: 1: Trac URL, 2: SVN repository URL, 3: development log URL, 4: RSS URL */
+				/* translators: 1: Github URL, 2: Github Releases URL */
 				__( '<a href="%1$s">Browse the code on Github</a>, or <a href="%2$s">check out recent releases</a>.', 'wporg-plugins' ),
 				esc_url( "https://github.com/{$github_repo}/" ),
 				esc_url( "https://github.com/{$github_repo}/releases" )
