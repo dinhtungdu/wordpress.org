@@ -277,6 +277,113 @@ class Import {
 	}
 
 	/**
+	 * Export a plugin and determine all the information about the current state of the plugin.
+	 *
+	 * - Creates a /trunk/ export of the plugin.
+	 * - Creates a /stable/ export of the stable_tag if specified, falling back to /trunk/.
+	 * - Handles readme.md & readme.txt prefering the latter.
+	 * - Searches for Screenshots in /$stable/ and in /assets/ (listed remotely).
+	 *
+	 * @throws \Exception
+	 *
+	 * @param string $plugin_slug The slug of the plugin to parse.
+	 *
+	 * @return array {
+	 *   'readme', 'stable_tag', 'plugin_headers', 'assets', 'tagged_versions'
+	 * }
+	 */
+	protected function export_and_parse_plugin( $plugin_slug, $from = 'svn' ) {
+		$tmp_dir = Filesystem::temp_directory( "process-{$plugin_slug}" );
+
+		if ( 'svn' === $from ) {
+			$export = $this->_export_and_parse_plugin_from_svn( $plugin_slug, $tmp_dir );
+		} elseif ( 'github' === $from ) {
+			// Github
+			$export = $this->_export_and_parse_plugin_from_github( $plugin_slug, $tmp_dir );
+		} else {
+			throw new Exception( 'Unknown Plugin Source' );
+		}
+
+		$stable_tag      = $export['stable_tag'];
+		$tagged_versions = $export['tagged_versions'];
+		$repo_assets     = $export['assets'];
+		$asset_base_url  = $export['asset_base_url'];
+		$block_files     = $export['block_files'];
+		if ( ! $repo_assets ) {
+			$repo_assets = array();
+		}
+
+		// The readme may not actually exist, but that's okay.
+		$readme = $this->find_readme_file( $tmp_dir . '/export' );
+		$readme = new Parser( $readme );
+
+		// There must be valid plugin headers though.
+		$plugin_headers = $this->find_plugin_headers( "$tmp_dir/export" );
+		if ( ! $plugin_headers ) {
+			throw new Exception( 'Could not find the plugin headers.' );
+		}
+
+		// Now we look in the /assets/ folder for banners, screenshots, and icons.
+		$assets            = array(
+			'screenshot' => array(),
+			'banner'     => array(),
+			'icon'       => array(),
+		);
+
+		foreach ( $repo_assets as $asset ) {
+			// screenshot-0(-rtl)(-de_DE).(png|jpg|jpeg|gif)  ||  icon.svg
+			if ( ! preg_match( '!^(?P<type>screenshot|banner|icon)(?:-(?P<resolution>[\dx]+)(-rtl)?(?:-(?P<locale>[a-z]{2,3}(?:_[A-Z]{2})?(?:_[a-z0-9]+)?))?\.(png|jpg|jpeg|gif)|\.svg)$!i', $asset['filename'], $m ) ) {
+				continue;
+			}
+
+			$type       = $m['type'];
+			$filename   = $asset['filename'];
+			$revision   = $asset['revision'];
+			$location   = $asset['location'];
+			$data       = isset( $asset['data'] )   ? $asset['data']     : false;
+			$resolution = isset( $m['resolution'] ) ? $m['resolution']   : false;
+			$locale     = isset( $m['locale'] )     ? $m['locale']       : false;
+
+			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale', 'data' );
+		}
+
+		// Find screenshots in the stable plugin folder (but don't overwrite /assets/)
+		foreach ( Filesystem::list_files( "$tmp_dir/export/", false /* non-recursive */, '!^screenshot-\d+\.(jpeg|jpg|png|gif)$!' ) as $plugin_screenshot ) {
+			$filename      = basename( $plugin_screenshot );
+			$screenshot_id = substr( $filename, strpos( $filename, '-' ) + 1 );
+			$screenshot_id = substr( $screenshot_id, 0, strpos( $screenshot_id, '.' ) );
+
+			if ( isset( $assets['screenshot'][ $filename ] ) ) {
+				// Skip it, it exists within /assets/ already
+				continue;
+			}
+
+			$assets['screenshot'][ $filename ] = array(
+				'filename'   => $filename,
+				'revision'   => $svn_export['revision'],
+				'resolution' => $screenshot_id,
+				'location'   => 'plugin',
+			);
+		}
+
+		// Find blocks
+		$blocks = array();
+		foreach ( Filesystem::list_files( "$tmp_dir/export/", true /* recursive */, '!\.(?:php|js|jsx|json)$!i' ) as $filename ) {
+			$file_blocks = $this->find_blocks_in_file( $filename );
+			if ( $file_blocks ) {
+				foreach ( $file_blocks as $block ) {
+					// If the info came from a block.json file with more metadata (like description) then we want it to override less detailed info scraped from php/js.
+					if ( empty( $blocks[ $block->name ]->title ) || isset( $block->description ) ) {
+						$blocks[ $block->name ] = $block;
+					}
+				}
+			}
+		}
+
+		return compact( 'readme', 'stable_tag', 'tmp_dir', 'plugin_headers', 'assets', 'asset_base_url', 'tagged_versions', 'blocks', 'block_files' );
+	}
+
+	/**
 	 * Export a plugin from plugins.svn and determines the correct set of files to parse.
 	 *
 	 * @throws \Exception
@@ -404,10 +511,25 @@ class Import {
 			$repo_assets = array();
 		}
 
+		// Find blocks dist/build JS files
+		$block_files = array();
+		$dist_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/dist" ) ?: array();
+		$build_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build" ) ?: array();
+
+		foreach ( $dist_files as $file ) {
+			#$block_files[] = 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/dist/" . $file;
+			$block_files[] = '/trunk/dist/' . $file;
+		}
+
+		foreach ( $build_files as $file ) {
+			#$block_files[] = 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build/" . $file;
+			$block_files[] = '/trunk/build/' . $file;
+		}
+
 		// Inherit the defaults - SVN
 		$asset_base_url = false;
 
-		return compact( 'stable_tag', 'tagged_versions', 'repo_assets', 'asset_base_url' );
+		return compact( 'stable_tag', 'tagged_versions', 'repo_assets', 'asset_base_url', 'block_files' );
 	}
 
 	/**
@@ -512,128 +634,10 @@ class Import {
 			}
 		}
 
-		return compact( 'stable_tag', 'tagged_versions', 'assets', 'asset_base_url' );
-	}
-
-	/**
-	 * Export a plugin and determine all the information about the current state of the plugin.
-	 *
-	 * - Creates a /trunk/ export of the plugin.
-	 * - Creates a /stable/ export of the stable_tag if specified, falling back to /trunk/.
-	 * - Handles readme.md & readme.txt prefering the latter.
-	 * - Searches for Screenshots in /$stable/ and in /assets/ (listed remotely).
-	 *
-	 * @throws \Exception
-	 *
-	 * @param string $plugin_slug The slug of the plugin to parse.
-	 *
-	 * @return array {
-	 *   'readme', 'stable_tag', 'plugin_headers', 'assets', 'tagged_versions'
-	 * }
-	 */
-	protected function export_and_parse_plugin( $plugin_slug, $from = 'svn' ) {
-		$tmp_dir = Filesystem::temp_directory( "process-{$plugin_slug}" );
-
-		if ( 'svn' === $from ) {
-			$export = $this->_export_and_parse_plugin_from_svn( $plugin_slug, $tmp_dir );
-		} elseif ( 'github' === $from ) {
-			// Github
-			$export = $this->_export_and_parse_plugin_from_github( $plugin_slug, $tmp_dir );
-		} else {
-			throw new Exception( 'Unknown Plugin Source' );
-		}
-
-		$stable_tag      = $export['stable_tag'];
-		$tagged_versions = $export['tagged_versions'];
-		$repo_assets     = $export['assets'];
-		$asset_base_url  = $export['asset_base_url'];
-		if ( ! $repo_assets ) {
-			$repo_assets = array();
-		}
-
-		// The readme may not actually exist, but that's okay.
-		$readme = $this->find_readme_file( $tmp_dir . '/export' );
-		$readme = new Parser( $readme );
-
-		// There must be valid plugin headers though.
-		$plugin_headers = $this->find_plugin_headers( "$tmp_dir/export" );
-		if ( ! $plugin_headers ) {
-			throw new Exception( 'Could not find the plugin headers.' );
-		}
-
-		// Now we look in the /assets/ folder for banners, screenshots, and icons.
-		$assets            = array(
-			'screenshot' => array(),
-			'banner'     => array(),
-			'icon'       => array(),
-		);
-
-		foreach ( $repo_assets as $asset ) {
-			// screenshot-0(-rtl)(-de_DE).(png|jpg|jpeg|gif)  ||  icon.svg
-			if ( ! preg_match( '!^(?P<type>screenshot|banner|icon)(?:-(?P<resolution>[\dx]+)(-rtl)?(?:-(?P<locale>[a-z]{2,3}(?:_[A-Z]{2})?(?:_[a-z0-9]+)?))?\.(png|jpg|jpeg|gif)|\.svg)$!i', $asset['filename'], $m ) ) {
-				continue;
-			}
-
-			$type       = $m['type'];
-			$filename   = $asset['filename'];
-			$revision   = $asset['revision'];
-			$location   = $asset['location'];
-			$data       = isset( $asset['data'] )   ? $asset['data']     : false;
-			$resolution = isset( $m['resolution'] ) ? $m['resolution']   : false;
-			$locale     = isset( $m['locale'] )     ? $m['locale']       : false;
-
-			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale', 'data' );
-		}
-
-		// Find screenshots in the stable plugin folder (but don't overwrite /assets/)
-		foreach ( Filesystem::list_files( "$tmp_dir/export/", false /* non-recursive */, '!^screenshot-\d+\.(jpeg|jpg|png|gif)$!' ) as $plugin_screenshot ) {
-			$filename      = basename( $plugin_screenshot );
-			$screenshot_id = substr( $filename, strpos( $filename, '-' ) + 1 );
-			$screenshot_id = substr( $screenshot_id, 0, strpos( $screenshot_id, '.' ) );
-
-			if ( isset( $assets['screenshot'][ $filename ] ) ) {
-				// Skip it, it exists within /assets/ already
-				continue;
-			}
-
-			$assets['screenshot'][ $filename ] = array(
-				'filename'   => $filename,
-				'revision'   => $svn_export['revision'],
-				'resolution' => $screenshot_id,
-				'location'   => 'plugin',
-			);
-		}
-
-		// Find blocks
-		$blocks = array();
-		foreach ( Filesystem::list_files( "$tmp_dir/export/", true /* recursive */, '!\.(?:php|js|jsx|json)$!i' ) as $filename ) {
-			$file_blocks = $this->find_blocks_in_file( $filename );
-			if ( $file_blocks ) {
-				foreach ( $file_blocks as $block ) {
-					// If the info came from a block.json file with more metadata (like description) then we want it to override less detailed info scraped from php/js.
-					if ( empty( $blocks[ $block->name ]->title ) || isset( $block->description ) ) {
-						$blocks[ $block->name ] = $block;
-					}
-				}
-			}
-		}
-
-		// Find blocks dist/build JS files
+		// TODO: Implement
 		$block_files = array();
-		$dist_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/dist" ) ?: array();
-		$build_files = SVN::ls( 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build" ) ?: array();
 
-		foreach ( $dist_files as $file ) {
-			#$block_files[] = 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/dist/" . $file;
-			$block_files[] = '/trunk/dist/' . $file;
-		}
-
-		foreach ( $build_files as $file ) {
-			#$block_files[] = 'https://plugins.svn.wordpress.org' . "/{$plugin_slug}/trunk/build/" . $file;
-			$block_files[] = '/trunk/build/' . $file;
-		}
-
-		return compact( 'readme', 'stable_tag', 'tmp_dir', 'plugin_headers', 'assets', 'asset_base_url', 'tagged_versions', 'blocks', 'block_files' );
+		return compact( 'stable_tag', 'tagged_versions', 'assets', 'asset_base_url', 'block_files' );
 	}
 
 	/**
