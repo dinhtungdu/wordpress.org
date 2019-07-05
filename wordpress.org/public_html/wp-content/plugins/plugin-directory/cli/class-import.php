@@ -51,22 +51,33 @@ class Import {
 		// 'RequiresPHP' => 'requires_php',
 	);
 
+	// Back-compat: To be removed.. later.
+	public function import_from_svn( $plugin_slug, $svn_changed_tags = array( 'trunk' ), $svn_revision_triggered = 0 ) {
+		return $this->import_from_repo( $plugin_slug, $svn_changed_tags, $svn_revision_triggered );
+	}
+
 	/**
 	 * Process an import for a Plugin into the Plugin Directory.
 	 *
 	 * @throws \Exception
 	 *
-	 * @param string $plugin_slug            The slug of the plugin to import.
-	 * @param array  $svn_changed_tags       A list of tags/trunk which the SVN change touched. Optional.
-	 * @param array  $svn_revision_triggered The SVN revision which this import has been triggered by.
+	 * @param string $plugin_slug        The slug of the plugin to import.
+	 * @param array  $changed_tags       A list of tags/trunk which the SVN change touched. Optional.
+	 * @param array  $revision_triggered The SVN revision which this import has been triggered by.
 	 */
-	public function import_from_svn( $plugin_slug, $svn_changed_tags = array( 'trunk' ), $svn_revision_triggered = 0 ) {
+	public function import_from_repo( $plugin_slug, $changed_tags = array( 'trunk' ), $revision_triggered = 0 ) {
 		$plugin = Plugin_Directory::get_plugin_post( $plugin_slug );
 		if ( ! $plugin ) {
 			throw new Exception( 'Unknown Plugin' );
 		}
 
-		$data = $this->export_and_parse_plugin( $plugin_slug );
+		$plugin_source = 'svn';
+		// We only support SVN or a Github owner/repo style right now.
+		if ( get_post_meta( $plugin->ID, 'github_source', true ) ) {
+			$plugin_source = 'github';
+		}
+
+		$data = $this->export_and_parse_plugin( $plugin_slug, $plugin_source );
 
 		$readme          = $data['readme'];
 		$assets          = $data['assets'];
@@ -99,7 +110,7 @@ class Import {
 		if (
 			( ! isset( $headers->Version ) || $headers->Version != get_post_meta( $plugin->ID, 'version', true ) ) ||
 			$plugin->post_modified == '0000-00-00 00:00:00' ||
-			( $svn_changed_tags && in_array( ( $stable_tag ?: 'trunk' ), $svn_changed_tags, true ) )
+			( $changed_tags && in_array( ( $stable_tag ?: 'trunk' ), $changed_tags, true ) )
 		) {
 			$plugin->post_modified = $plugin->post_modified_gmt = current_time( 'mysql' );
 		}
@@ -210,7 +221,7 @@ class Import {
 
 		$current_stable_tag = get_post_meta( $plugin->ID, 'stable_tag', true ) ?: 'trunk';
 
-		$this->rebuild_affected_zips( $plugin_slug, $stable_tag, $current_stable_tag, $svn_changed_tags, $svn_revision_triggered );
+		$this->rebuild_affected_zips( $plugin_slug, $stable_tag, $current_stable_tag, $changed_tags, $revision_triggered );
 
 		// Finally, set the new version live.
 		update_post_meta( $plugin->ID, 'stable_tag', wp_slash( $stable_tag ) );
@@ -264,24 +275,18 @@ class Import {
 	}
 
 	/**
-	 * Export a plugin and determine all the information about the current state of the plugin.
-	 *
-	 * - Creates a /trunk/ export of the plugin.
-	 * - Creates a /stable/ export of the stable_tag if specified, falling back to /trunk/.
-	 * - Handles readme.md & readme.txt prefering the latter.
-	 * - Searches for Screenshots in /$stable/ and in /assets/ (listed remotely).
+	 * Export a plugin from plugins.svn and determines the correct set of files to parse.
 	 *
 	 * @throws \Exception
 	 *
 	 * @param string $plugin_slug The slug of the plugin to parse.
+	 * @param string $tmp_dir The temporary path expected to hold the files.
 	 *
 	 * @return array {
-	 *   'readme', 'stable_tag', 'plugin_headers', 'assets', 'tagged_versions'
+	 *   `stable_tag`, 'repo_assets', 'tagged_versions'
 	 * }
 	 */
-	protected function export_and_parse_plugin( $plugin_slug ) {
-		$tmp_dir = Filesystem::temp_directory( "process-{$plugin_slug}" );
-
+	protected function _export_and_parse_plugin_from_svn( $plugin_slug, $tmp_dir ) {
 		// We assume the stable tag is trunk to start with.
 		$stable_tag = 'trunk';
 
@@ -386,6 +391,196 @@ class Import {
 			}
 		}
 
+		// Get a list of assets in the assets folder.
+		$repo_assets = SVN::ls( self::PLUGIN_SVN_BASE . "/{$plugin_slug}/assets/", true /* verbose */ );
+		if ( $repo_assets ) {
+			foreach ( $repo_assets as &$asset ) {
+				$asset['location'] = 'assets';
+				$asset['url']      = false;
+			}
+		} else {
+			$repo_assets = array();
+		}
+
+		return compact( 'stable_tag', 'tagged_versions', 'repo_assets' );
+	}
+
+	/**
+	 * A quick and hacky function to query Githubs API.
+	 *
+	 * @param string $repo      The Github repo to query.
+	 * @param string $endpoint  The Github API Endpoint to query.
+	 * @param string $namespace The API Namespace you're requesting. Defaults to the 'repos' namespace.s
+	 *
+	 * @return object JSON Decoded Github API response. Very little error handling. Expect Exceptions.
+	 */
+	protected function query_github_api( $repo, $endpoint = '', $namespace = 'repos' ) {
+		$opts = [
+			'user-agent' => 'WordPress.org Plugin Repository; https://wordpress.org/plugins/',
+		];
+
+		$url = 'https://api.github.com/' . trim( $namespace, '/' ) . '/' . trim( $repo, '/' ) . rtrim( '/' . ltrim( $endpoint, '/' ), '/' );
+
+		$request = wp_remote_get( $url, $opts );
+
+		// TODO:
+		// - No follow redirects, catch a redirect which means the source of the github has changed.
+		// - Error handling, detect error returns.
+
+		if ( ! $request ) {
+			throw new Exception( 'Github API unavailable' );
+		}
+		if ( is_wp_error( $request ) ) {
+			throw new Exception( 'Github API unavailable: ' . $request->get_error_code() . ' ' . $request->get_error_message() );
+		}
+
+		$api = json_decode( wp_remote_retrieve_body( $request ) );
+		if ( ! $api ) {
+			throw new Exception( 'Github API unavailable.' );
+		}
+
+		if ( 200 !== wp_remote_retrieve_response_code( $request ) && isset( $api->message ) ) {
+			throw new Exception( sprintf(
+				'Github API Error: %s %s',
+				wp_remote_retrieve_response_code( $request ),
+				$api->message
+			) );
+		}
+
+		return $api;
+	}
+
+	/**
+	 * Export a plugin from Github and determines the correct set of files to parse.
+	 *
+	 * @throws \Exception
+	 *
+	 * @param string $plugin_slug The slug of the plugin to parse.
+	 * @param string $tmp_dir The temporary path expected to hold the files.
+	 *
+	 * @return array {
+	 *   `stable_tag`, 'repo_assets', 'tagged_versions'
+	 * }
+	 */
+	function _export_and_parse_plugin_from_github( $plugin_slug, $tmp_dir ) {
+		$plugin = Plugin_Directory::get_plugin_post( $plugin_slug );
+		if ( ! $plugin ) {
+			throw new Exception( 'Unknown Plugin' );
+		}
+
+		$github_repo = get_post_meta( $plugin->ID, 'github_source', true );
+		if ( ! $github_repo || $github_repo !== trim( $github_repo, '/' ) || 1 !== substr_count( $github_repo, '/' ) ) {
+			throw new Exception( 'Invalid Github Source specified.' );
+		}
+
+		$github_api      = $this->query_github_api( $github_repo );
+		$github_releases = $this->query_github_api( $github_repo, '/releases' ); // Tagged Github releases
+		$github_assets   = $this->query_github_api( $github_repo, '/git/trees/assets' ); // Might not actually have the assets branch.
+
+		// List of tagged releases
+		$tagged_versions = wp_list_pluck(
+			wp_list_filter(
+				$github_releases,
+				array( 'prerelease' => false )
+			),
+			'tag_name'
+		);
+
+		// Derrive Stable Tag from the LATEST release, not from the readme.
+		$stable_tag = array_reduce(
+			wp_list_filter(
+				$github_releases,
+				array( 'prerelease' => false )
+			),
+			function( $a, $b ) {
+				return version_compare( strtotime( $a->published_at ?? 0 ), strtotime( $b->published_at ?? 0 ), '>' ) ? $a : $b;
+			}
+		);
+
+		// Fall back to a pre-release
+		if ( ! $stable_tag ) {
+			$stable_tag = array_reduce( $github_releases, function( $a, $b ) {
+				return version_compare( strtotime( $a->published_at ?? 0 ),  strtotime( $b->published_at ?? 0 ), '>' ) ? $a : $b;
+			} );
+		}
+		if ( ! $stable_tag ) {
+			throw new Exception( "Plugin doesn't have any Releases, nor Pre-releaes" );
+		} else {
+			$stable_tag = $stable_tag->tag_name;
+		}
+
+		// Create $tmp_dir/export
+		$output = [];
+		$return_val = 0;
+		exec(
+			$git_checkout_command = sprintf(
+				'export LC_CTYPE="en_US.UTF-8" LANG="en_US.UTF-8"; ' .
+				'git clone --no-hardlinks --single-branch --depth 1 -b %s %s %s',
+				escapeshellarg( $stable_tag ?: 'master' ),
+				escapeshellarg( $github_api->clone_url ),
+				escapeshellarg( $tmp_dir . '/export' )
+			),
+			$output,
+			$return_val,
+		);
+		if ( $return_val !== 0 ) {
+			// Something happened.. lets deal with this later.
+		}
+
+		// Get a list of the assets - Could also use `git ls-tree -l origin/assets`
+		$assets = false;
+		if ( $github_assets && isset( $github_assets->tree ) ) {
+			foreach ( $github_assets->tree as $file ) {
+				$assets[] = array(
+					'filename' => $file->path,
+					'filesize' => $file->size,
+					'revision' => $file->sha, // Close enougn, it's only a cache-buster afterall.
+					'author'   => false,
+					'date'     => false,
+					'location' => 'github_asset',
+					'url'      => 'https://raw.githubusercontent.com/' . $github_repo . '/assets/' . $file->path,
+				);
+			}
+		}
+
+		return compact( 'stable_tag', 'tagged_versions', 'assets' );
+	}
+
+	/**
+	 * Export a plugin and determine all the information about the current state of the plugin.
+	 *
+	 * - Creates a /trunk/ export of the plugin.
+	 * - Creates a /stable/ export of the stable_tag if specified, falling back to /trunk/.
+	 * - Handles readme.md & readme.txt prefering the latter.
+	 * - Searches for Screenshots in /$stable/ and in /assets/ (listed remotely).
+	 *
+	 * @throws \Exception
+	 *
+	 * @param string $plugin_slug The slug of the plugin to parse.
+	 *
+	 * @return array {
+	 *   'readme', 'stable_tag', 'plugin_headers', 'assets', 'tagged_versions'
+	 * }
+	 */
+	protected function export_and_parse_plugin( $plugin_slug, $from = 'svn' ) {
+		$tmp_dir = Filesystem::temp_directory( "process-{$plugin_slug}" );
+
+		if ( 'svn' === $from ) {
+			$export = $this->_export_and_parse_plugin_from_svn( $plugin_slug, $tmp_dir );
+		} elseif ( 'github' === $from ) {
+			// Github
+			$export = $this->_export_and_parse_plugin_from_github( $plugin_slug, $tmp_dir );
+		} else {
+			throw new Exception( 'Unknown Plugin Source' );
+		}
+
+		$stable_tag      = $export['stable_tag'];
+		$tagged_versions = $export['tagged_versions'];
+		$repo_assets     = $export['assets'];
+		if ( ! $repo_assets ) {
+			$repo_assets = array();
+		}
+
 		// The readme may not actually exist, but that's okay.
 		$readme = $this->find_readme_file( $tmp_dir . '/export' );
 		$readme = new Parser( $readme );
@@ -402,23 +597,22 @@ class Import {
 			'banner'     => array(),
 			'icon'       => array(),
 		);
-		$svn_assets_folder = SVN::ls( self::PLUGIN_SVN_BASE . "/{$plugin_slug}/assets/", true /* verbose */ );
-		if ( $svn_assets_folder ) { // /assets/ may not exist.
-			foreach ( $svn_assets_folder as $asset ) {
-				// screenshot-0(-rtl)(-de_DE).(png|jpg|jpeg|gif)  ||  icon.svg
-				if ( ! preg_match( '!^(?P<type>screenshot|banner|icon)(?:-(?P<resolution>[\dx]+)(-rtl)?(?:-(?P<locale>[a-z]{2,3}(?:_[A-Z]{2})?(?:_[a-z0-9]+)?))?\.(png|jpg|jpeg|gif)|\.svg)$!i', $asset['filename'], $m ) ) {
-					continue;
-				}
 
-				$type       = $m['type'];
-				$filename   = $asset['filename'];
-				$revision   = $asset['revision'];
-				$location   = 'assets';
-				$resolution = isset( $m['resolution'] ) ? $m['resolution'] : false;
-				$locale     = isset( $m['locale'] )     ? $m['locale']     : false;
-
-				$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale' );
+		foreach ( $repo_assets as $asset ) {
+			// screenshot-0(-rtl)(-de_DE).(png|jpg|jpeg|gif)  ||  icon.svg
+			if ( ! preg_match( '!^(?P<type>screenshot|banner|icon)(?:-(?P<resolution>[\dx]+)(-rtl)?(?:-(?P<locale>[a-z]{2,3}(?:_[A-Z]{2})?(?:_[a-z0-9]+)?))?\.(png|jpg|jpeg|gif)|\.svg)$!i', $asset['filename'], $m ) ) {
+				continue;
 			}
+
+			$type       = $m['type'];
+			$filename   = $asset['filename'];
+			$revision   = $asset['revision'];
+			$location   = $asset['location'];
+			$url        = $asset['url'];
+			$resolution = isset( $m['resolution'] ) ? $m['resolution']   : false;
+			$locale     = isset( $m['locale'] )     ? $m['locale']       : false;
+
+			$assets[ $type ][ $asset['filename'] ] = compact( 'filename', 'revision', 'resolution', 'location', 'locale', 'url' );
 		}
 
 		// Find screenshots in the stable plugin folder (but don't overwrite /assets/)
