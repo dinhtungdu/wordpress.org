@@ -84,7 +84,7 @@ if ( $opts['async'] ) {
 echo "Processing Import for $plugin_slug... ";
 try {
 	$importer = new CLI\Import();
-	$importer->import_from_svn( $plugin_slug, $changed_tags );
+	$importer->import_from_repo( $plugin_slug, $changed_tags );
 	echo 'OK. Took ' . round( microtime( 1 ) - $start_time, 2 ) . "s\n";
 } catch ( \Exception $e ) {
 	echo 'Failed. Took ' . round( microtime( 1 ) - $start_time, 2 ) . "s\n";

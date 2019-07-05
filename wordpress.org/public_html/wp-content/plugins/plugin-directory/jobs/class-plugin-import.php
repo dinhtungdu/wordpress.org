@@ -38,7 +38,7 @@ class Plugin_Import {
 
 		try {
 			$importer = new CLI\Import();
-			$importer->import_from_svn( $plugin_slug, $changed_tags, $revision );
+			$importer->import_from_repo( $plugin_slug, $changed_tags, $revision );
 		} catch ( Exception $e ) {
 			fwrite( STDERR, "[{$plugin_slug}] Plugin Import Failed: " . $e->getMessage() . "\n" );
 		}

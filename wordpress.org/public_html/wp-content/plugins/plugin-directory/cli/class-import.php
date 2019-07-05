@@ -51,11 +51,6 @@ class Import {
 		// 'RequiresPHP' => 'requires_php',
 	);
 
-	// Back-compat: To be removed.. later.
-	public function import_from_svn( $plugin_slug, $svn_changed_tags = array( 'trunk' ), $svn_revision_triggered = 0 ) {
-		return $this->import_from_repo( $plugin_slug, $svn_changed_tags, $svn_revision_triggered );
-	}
-
 	/**
 	 * Process an import for a Plugin into the Plugin Directory.
 	 *
