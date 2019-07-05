@@ -56,11 +56,11 @@ class Import {
 	 *
 	 * @throws \Exception
 	 *
-	 * @param string $plugin_slug        The slug of the plugin to import.
-	 * @param array  $changed_tags       A list of tags/trunk which the SVN change touched. Optional.
-	 * @param array  $revision_triggered The SVN revision which this import has been triggered by.
+	 * @param string $plugin_slug    The slug of the plugin to import.
+	 * @param array  $changed_tags   A list of tags/trunk which the SVN change touched. Optional.
+	 * @param array  $revision_note  A reference of what has triggered this import. Optional.
 	 */
-	public function import_from_repo( $plugin_slug, $changed_tags = array( 'trunk' ), $revision_triggered = 0 ) {
+	public function import_from_repo( $plugin_slug, $changed_tags = array( 'trunk' ), $revision_note = false ) {
 		$plugin = Plugin_Directory::get_plugin_post( $plugin_slug );
 		if ( ! $plugin ) {
 			throw new Exception( 'Unknown Plugin' );
@@ -223,7 +223,7 @@ class Import {
 
 		$current_stable_tag = get_post_meta( $plugin->ID, 'stable_tag', true ) ?: 'trunk';
 
-		$this->rebuild_affected_zips( $plugin_slug, $stable_tag, $current_stable_tag, $changed_tags, $revision_triggered );
+		$this->rebuild_affected_zips( $plugin_slug, $stable_tag, $current_stable_tag, $changed_tags, $revision_note );
 
 		// Finally, set the new version live.
 		update_post_meta( $plugin->ID, 'stable_tag', wp_slash( $stable_tag ) );
@@ -244,17 +244,19 @@ class Import {
 	 * @param string $plugin_slug            The plugin slug.
 	 * @param string $stable_tag             The new stable tag.
 	 * @param string $current_stable_tag     The new stable tag.
-	 * @param array  $svn_changed_tags       The list of SVN tags modified since last import.
-	 * @param string $svn_revision_triggered The SVN revision which triggered the rebuild.
+	 * @param array  $versions_to_build      The list of versions modified since last import.
+	 * @param string $revision_note          A reference of what has triggreed this action.
 	 *
 	 * @return bool
 	 */
-	protected function rebuild_affected_zips( $plugin_slug, $stable_tag, $current_stable_tag, $svn_changed_tags, $svn_revision_triggered = 0 ) {
-		$versions_to_build = $svn_changed_tags;
-
+	protected function rebuild_affected_zips( $plugin_slug, $stable_tag, $current_stable_tag, $versions_to_build, $revision_note = false ) {
 		// Ensure that the stable zip is built/rebuilt if need be.
 		if ( $stable_tag != $current_stable_tag && ! in_array( $stable_tag, $versions_to_build ) ) {
 			$versions_to_build[] = $stable_tag;
+		}
+
+		if ( ! $revision_note ) {
+			$revision_note = php_uname('n');
 		}
 
 		// Rebuild/Build $build_zips
@@ -264,9 +266,7 @@ class Import {
 			$zip_builder->build(
 				$plugin_slug,
 				array_unique( $versions_to_build ),
-				$svn_revision_triggered ?
-					"{$plugin_slug}: ZIP build triggered by https://plugins.trac.wordpress.org/changeset/{$svn_revision_triggered}" :
-					"{$plugin_slug}: ZIP build triggered by " . php_uname( 'n' ),
+				"{$plugin_slug}: ZIP build triggered by {$revision_note}",
 				$stable_tag
 			);
 		} catch ( Exception $e ) {

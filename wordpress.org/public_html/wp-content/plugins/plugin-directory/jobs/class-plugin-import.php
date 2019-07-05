@@ -36,9 +36,17 @@ class Plugin_Import {
 
 		$revision = isset( $plugin_data['revisions'] ) ? max( (array) $plugin_data['revisions'] ) : false;
 
+		// What has triggered this import.
+		$revision_note = false;
+		if ( isset( $plugin_data['revision_note'] ) ) {
+			$revision_note = $plugin_data['revision_note']; // Github etc.
+		} elseif ( $revision ) {
+			$revision_note = "https://plugins.trac.wordpress.org/changeset/{$revision}";
+		}
+
 		try {
 			$importer = new CLI\Import();
-			$importer->import_from_repo( $plugin_slug, $changed_tags, $revision );
+			$importer->import_from_repo( $plugin_slug, $changed_tags, $revision_note );
 		} catch ( Exception $e ) {
 			fwrite( STDERR, "[{$plugin_slug}] Plugin Import Failed: " . $e->getMessage() . "\n" );
 		}
