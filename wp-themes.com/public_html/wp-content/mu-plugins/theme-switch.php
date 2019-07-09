@@ -38,6 +38,11 @@ class WP_Themes_Theme_Switcher {
 			return false;
 		}
 
+		// For base-files, trust the referer instead.
+		if ( isset( $_SERVER['HTTP_REFERER'] ) && '.php' == substr( $stylesheet, -4 ) ) {
+			$stylesheet = array_shift( array_filter( explode( '/', parse_url( $_SERVER['HTTP_REFERER'], PHP_URL_PATH ) ) ) );
+		}
+
 		$theme = wp_get_theme( $stylesheet );
 		if ( ! $theme || ! $theme->exists() ) {
 			return false;
