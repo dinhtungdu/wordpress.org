@@ -10,7 +10,7 @@ class WP_Themes_Theme_Switcher {
 	public $theme = false;
 
 	function __construct() {
-		if ( is_admin() || preg_match( '!^/wp-json/!i', $_SERVER['REQUEST_URI'] ) || defined( 'XMLRPC_REQUEST' ) ) {
+		if ( is_admin() || preg_match( '!^/wp-json/!i', $_SERVER['REQUEST_URI'] ) || defined( 'XMLRPC_REQUEST' ) || 'cli' == php_sapi_name() ) {
 			return;
 		}
 
