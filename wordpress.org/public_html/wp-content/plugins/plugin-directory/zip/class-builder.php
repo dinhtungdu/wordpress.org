@@ -180,6 +180,9 @@ class Builder {
 			return;
 		}
 
+		// get_plugin_data() is admin only.
+		require_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+
 		// Fetch the plugin headers
 		$plugin_data = false;
 		foreach ( glob( $this->tmp_build_dir . '/' . $this->slug . '/*.php' ) as $filename ) {
