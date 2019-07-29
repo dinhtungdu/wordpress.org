@@ -501,14 +501,14 @@ class Import {
 		}
 
 		// Get a list of assets in the assets folder.
-		$repo_assets = SVN::ls( self::PLUGIN_SVN_BASE . "/{$plugin_slug}/assets/", true /* verbose */ );
-		if ( $repo_assets ) {
-			foreach ( $repo_assets as &$asset ) {
+		$assets = SVN::ls( self::PLUGIN_SVN_BASE . "/{$plugin_slug}/assets/", true /* verbose */ );
+		if ( $assets ) {
+			foreach ( $assets as &$asset ) {
 				$asset['location'] = 'assets';
 				$asset['url']      = false;
 			}
 		} else {
-			$repo_assets = array();
+			$assets = array();
 		}
 
 		// Find blocks dist/build JS files
@@ -529,7 +529,7 @@ class Import {
 		// Inherit the defaults - SVN
 		$asset_base_url = false;
 
-		return compact( 'stable_tag', 'tagged_versions', 'repo_assets', 'asset_base_url', 'block_files' );
+		return compact( 'stable_tag', 'tagged_versions', 'assets', 'asset_base_url', 'block_files' );
 	}
 
 	/**
