@@ -61,8 +61,6 @@ class Builder {
 			$this->tmp_dir,
 			array(
 				'depth'    => 'empty',
-				'username' => PLUGIN_ZIP_SVN_USER,
-				'password' => PLUGIN_ZIP_SVN_PASS,
 			)
 		);
 
