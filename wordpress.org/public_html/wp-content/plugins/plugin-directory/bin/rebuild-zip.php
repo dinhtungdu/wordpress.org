@@ -96,8 +96,13 @@ if ( empty( $versions ) ) {
 	} elseif ( 'github' === $plugin_source ) {
 		$github_repo = get_post_meta( $plugin_post->ID, 'github_source', true );
 
-		// List of tagged releases
-		$github_releases = Tools::query_github_api( $github_repo, '/releases' );
+		try {
+			// List of tagged releases
+			$github_releases = Tools::query_github_api( $github_repo, '/releases' );
+		} catch( $e ) {
+			fwrite( STDERR, "{$plugin_slug}: Failed to retrieve Github releases: " . $e->getMessage() . "\n" );
+			exit( 1 );
+		}
 
 		// List of non-prerelease releases.
 		$versions  = wp_list_pluck(
