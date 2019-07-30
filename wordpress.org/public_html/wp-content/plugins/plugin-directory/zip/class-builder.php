@@ -1,6 +1,8 @@
 <?php
 namespace WordPressdotorg\Plugin_Directory\Zip;
 
+use WordPressdotorg\Plugin_Directory\Plugin_Directory;
+use WordPressdotorg\Plugin_Directory\Tools;
 use WordPressdotorg\Plugin_Directory\Tools\SVN;
 use Exception;
 
@@ -357,10 +359,21 @@ class Builder {
 	 * Creates an Export of the plugin and redies it for ZIP creation by removing invalid data.
 	 */
 	protected function export_plugin() {
-		$this->_export_plugin_from_svn();
+
+		$build_dir = "{$this->tmp_build_dir}/{$this->slug}/";
+
+		$plugin_source = 'svn';
+		// We only support SVN or a Github owner/repo style right now.
+		$plugin_post   = Plugin_Directory::get_plugin_post( $this->slug );
+		$github_source = get_post_meta( $plugin_post->ID, 'github_source', true );
+		if ( $github_source ) {
+			$this->_export_plugin_from_github( $build_dir, $github_source );
+		} else {
+			$this->_export_plugin_from_svn( $build_dir );
+		}
 
 		// Verify that the specified plugin zip will contain files.
-		if ( ! array_diff( scandir( $this->tmp_build_dir ), array( '.', '..' ) ) ) {
+		if ( ! array_diff( scandir( $build_dir ), array( '.', '..' ) ) ) {
 			throw new Exception( ___METHOD__ . ': No files exist in the plugin directory', 404 );
 		}
 
@@ -378,14 +391,12 @@ class Builder {
 	 *
 	 * @ignore
 	 */
-	protected function _export_plugin_from_svn() {
+	protected function _export_plugin_from_svn( $build_dir ) {
 		if ( 'trunk' == $this->version ) {
 			$this->plugin_version_svn_url = self::SVN_URL . "/{$this->slug}/trunk/";
 		} else {
 			$this->plugin_version_svn_url = self::SVN_URL . "/{$this->slug}/tags/{$this->version}/";
 		}
-
-		$build_dir = "{$this->tmp_build_dir}/{$this->slug}/";
 
 		$svn_params = array();
 		// BudyPress is a special sister project, they have svn:externals.
@@ -403,6 +414,45 @@ class Builder {
 		if ( ! $res['result'] ) {
 			throw new Exception( __METHOD__ . ': ' . $res['errors'][0]['error_message'], 404 );
 		}
+
+		return true;
+	}
+
+	/**
+	 * Creates an export of the plugin from a specified Github tag.
+	 *
+	 * @ignore
+	 */
+	protected function _export_plugin_from_github( $build_dir, $github_repo ) {
+
+		$github_api = Tools::query_github_api( $github_repo );
+
+		if ( 'trunk' == $this->version || 'master' == $this->version ) {
+			$github_branch = 'master';
+		} else {
+			$github_branch = $this->version;
+		}
+		$this->plugin_version_svn_url = $github_api->html_url . '/tree/' . $github_branch;
+
+		$output = [];
+		$return_val = 0;
+		exec(
+			$git_checkout_command = sprintf(
+				'export LC_CTYPE="en_US.UTF-8" LANG="en_US.UTF-8"; ' .
+				'git clone --no-hardlinks --single-branch --depth 1 -b %s %s %s',
+				escapeshellarg( $github_branch ),
+				escapeshellarg( $github_api->clone_url ),
+				escapeshellarg( $build_dir )
+			),
+			$output,
+			$return_val,
+		);
+		if ( $return_val !== 0 ) {
+			// Something happened.. lets deal with this later.
+		}
+
+		// Remove the .git directory, as we don't want it in checksums or the ZIP.
+		$this->exec( sprintf( 'rm -rf %s', escapeshellarg( $build_dir . '.git' ) ) );
 
 		return true;
 	}
