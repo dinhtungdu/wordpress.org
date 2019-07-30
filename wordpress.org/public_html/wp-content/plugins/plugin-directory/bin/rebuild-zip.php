@@ -2,6 +2,7 @@
 namespace WordPressdotorg\Plugin_Directory;
 
 use WordPressdotorg\Plugin_Directory\Plugin_Directory;
+use WordPressdotorg\Plugin_Directory\Tools;
 use WordPressdotorg\Plugin_Directory\Tools\SVN;
 use Exception;
 
@@ -65,18 +66,48 @@ $plugin_slug = $opts['plugin'];
 $versions    = array_filter( array_unique( array_map( 'trim', (array) explode( ',', $opts['versions'] ) ) ), 'strlen' );
 $start_time  = microtime( 1 );
 
+$plugin_post = Plugin_Directory::get_plugin_post( $plugin_slug );
+if ( ! $plugin_post ) {
+	fwrite( STDERR, "{$plugin_slug}: Zip Rebuild failed: Could not locate plugin post.\n" );
+	exit( 1 );
+}
+
 if ( empty( $versions ) ) {
-	// Rebuild them all!
-	$svn_tags = SVN::ls( "http://plugins.svn.wordpress.org/{$plugin_slug}/tags/" );
-	if ( false === $svn_tags ) {
-		fwrite( STDERR, "{$plugin_slug}: Warning: Failed to retrieve SVN tag listing, proceeding with trunk rebuilding only.\n" );
-		$svn_tags = array();
+	$versions = array();
+
+	$plugin_source = 'svn';
+	// We only support SVN or a Github owner/repo style right now.
+	if ( get_post_meta( $plugin_post->ID, 'github_source', true ) ) {
+		$plugin_source = 'github';
 	}
 
-	$versions = array_map( function( $dir ) {
-		return trim( $dir, '/' );
-	}, $svn_tags );
-	$versions[] = 'trunk';
+	if ( 'svn' === $plugin_source ) {
+		// Rebuild them all!
+		$svn_tags = SVN::ls( "http://plugins.svn.wordpress.org/{$plugin_slug}/tags/" );
+		if ( false === $svn_tags ) {
+			fwrite( STDERR, "{$plugin_slug}: Warning: Failed to retrieve SVN tag listing, proceeding with trunk rebuilding only.\n" );
+			$svn_tags = array();
+		}
+
+		$versions = array_map( function( $dir ) {
+			return trim( $dir, '/' );
+		}, $svn_tags );
+		$versions[] = 'trunk';
+	} elseif ( 'github' === $plugin_source ) {
+		$github_repo = get_post_meta( $plugin_post->ID, 'github_source', true );
+
+		// List of tagged releases
+		$github_releases = Tools::query_github_api( $github_repo, '/releases' );
+
+		// List of non-prerelease releases.
+		$versions  = wp_list_pluck(
+			wp_list_filter(
+				$github_releases,
+				array( 'prerelease' => false )
+			),
+			'tag_name'
+		);
+	}
 }
 
 if ( ! $versions ) {
@@ -88,10 +119,6 @@ echo "Rebuilding ZIPs for $plugin_slug... ";
 try {
 	$zip_builder = new ZIP\Builder();
 
-	$plugin_post = Plugin_Directory::get_plugin_post( $plugin_slug );
-	if ( ! $plugin_post ) {
-		throw new Exception( 'Could not locate plugin post' );
-	}
 	$stable_tag = get_post_meta( $plugin_post->ID, 'stable_tag', true ) ?? 'trunk';
 
 	// (re)Build & Commit 5 Zips at a time to avoid limitations.
