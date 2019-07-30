@@ -357,6 +357,28 @@ class Builder {
 	 * Creates an Export of the plugin and redies it for ZIP creation by removing invalid data.
 	 */
 	protected function export_plugin() {
+		$this->_export_plugin_from_svn();
+
+		// Verify that the specified plugin zip will contain files.
+		if ( ! array_diff( scandir( $this->tmp_build_dir ), array( '.', '..' ) ) ) {
+			throw new Exception( ___METHOD__ . ': No files exist in the plugin directory', 404 );
+		}
+
+		// Cleanup any symlinks that shouldn't be there
+		$this->exec( sprintf(
+			'find %s -type l -print0 | xargs -r0 rm',
+			escapeshellarg( $build_dir )
+		) );
+
+		return true;
+	}
+
+	/**
+	 * Creates an export of the plugin from SVN.
+	 *
+	 * @ignore
+	 */
+	protected function _export_plugin_from_svn() {
 		if ( 'trunk' == $this->version ) {
 			$this->plugin_version_svn_url = self::SVN_URL . "/{$this->slug}/trunk/";
 		} else {
@@ -381,17 +403,6 @@ class Builder {
 		if ( ! $res['result'] ) {
 			throw new Exception( __METHOD__ . ': ' . $res['errors'][0]['error_message'], 404 );
 		}
-
-		// Verify that the specified plugin zip will contain files.
-		if ( ! array_diff( scandir( $this->tmp_build_dir ), array( '.', '..' ) ) ) {
-			throw new Exception( ___METHOD__ . ': No files exist in the plugin directory', 404 );
-		}
-
-		// Cleanup any symlinks that shouldn't be there
-		$this->exec( sprintf(
-			'find %s -type l -print0 | xargs -r0 rm',
-			escapeshellarg( $build_dir )
-		) );
 
 		return true;
 	}
