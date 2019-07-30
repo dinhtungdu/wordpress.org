@@ -99,7 +99,7 @@ if ( empty( $versions ) ) {
 		try {
 			// List of tagged releases
 			$github_releases = Tools::query_github_api( $github_repo, '/releases' );
-		} catch( $e ) {
+		} catch( Exception $e ) {
 			fwrite( STDERR, "{$plugin_slug}: Failed to retrieve Github releases: " . $e->getMessage() . "\n" );
 			exit( 1 );
 		}
