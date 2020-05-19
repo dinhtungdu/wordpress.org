@@ -6,6 +6,9 @@
  * @package wporg-themes
  */
 
+add_filter( 'pre_option_show_on_front', function() { return 'page'; } );
+add_filter( 'pre_option_page_on_front', function() { return 25696; } );
+
 /**
  * Sets up theme defaults and registers support for various WordPress features.
  *
@@ -79,12 +82,6 @@ function wporg_themes_canonical_redirects() {
 		die();
 	}
 
-	// Redirect /browse/featured/ to the front-page temporarily, as it's showing in Google results.
-	if ( '/themes/browse/featured' === substr( $path, 0, 23 ) ) {
-		wp_safe_redirect( home_url( '/' ), 302 );
-		die();
-	}
-
 	// Ensure all requests are trailingslash'd.
 	if ( $path && '/' !== substr( $path, -1 ) && '.xml' !== substr( $path, -4 ) ) {
 		$url = str_replace( $path, $path . '/', $_SERVER['REQUEST_URI'] );
@@ -97,7 +94,7 @@ function wporg_themes_canonical_redirects() {
  * Enqueue scripts and styles.
  */
 function wporg_themes_scripts() {
-	$script_debug = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG;
+	$script_debug = true || defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG;
 	$suffix       = $script_debug ? '' : '.min';
 
 	// Concatenates core scripts when possible.
@@ -108,7 +105,7 @@ function wporg_themes_scripts() {
 	wp_enqueue_style( 'wporg-themes', get_theme_file_uri( '/css/style.css' ), [ 'dashicons', 'open-sans' ], '20200421' );
 	wp_style_add_data( 'wporg-themes', 'rtl', 'replace' );
 
-	if ( ! is_singular( 'page' ) ) {
+	if ( ! is_singular( 'page' ) || is_front_page() ) {
 		wp_enqueue_script( 'google-charts-loader', 'https://www.gstatic.com/charts/loader.js', array(), null, true );
 		wp_enqueue_script( 'wporg-theme', get_template_directory_uri() . "/js/theme{$suffix}.js", array( 'wp-backbone' ), '20200415', true );
 
@@ -304,7 +301,7 @@ add_filter( 'template_redirect', 'wporg_themes_custom_feed', 9999 );
  * Include view templates in the footer.
  */
 function wporg_themes_view_templates() {
-	if ( ! is_singular( 'page' ) ) {
+	if ( ! is_singular( 'page' ) || is_front_page() ) {
 		get_template_part( 'view-templates/theme' );
 		get_template_part( 'view-templates/theme-preview' );
 		get_template_part( 'view-templates/theme-single' );

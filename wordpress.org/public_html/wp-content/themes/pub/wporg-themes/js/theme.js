@@ -128,6 +128,10 @@ window.wp = window.wp || {};
 			var self = this,
 				bottom, threshold;
 
+			if ( ! self.$el.length ) {
+				return;
+			}
+
 			bottom = this.window.scrollTop() + self.window.height();
 			threshold = self.$el.offset().top + self.$el.outerHeight( false ) - self.window.height();
 			threshold = Math.round( threshold * 0.9 );
@@ -805,13 +809,9 @@ window.wp = window.wp || {};
 							sorter = $( '.filter-links [data-sort="' + themes.data.settings.browseDefault + '"]' );
 							args   = { trigger: true };
 						}
-						if ( themes.data.settings.browseDefault === sorter.data( 'sort' ) ) {
-							themes.router.navigate( themes.router.baseUrl( '/' ), args );
-							themes.utils.title( 'home' );
-						} else {
-							themes.router.navigate( themes.router.baseUrl( themes.router.browsePath + sorter.data( 'sort' ) ), args );
-							themes.utils.title( sorter.text(), 'browse' );
-						}
+						
+						themes.router.navigate( themes.router.baseUrl( themes.router.browsePath + sorter.data( 'sort' ) ), args );
+						themes.utils.title( sorter.text(), 'browse' );
 					}
 
 					// Restore scroll position
@@ -1444,11 +1444,7 @@ window.wp = window.wp || {};
 			this.sort( sort );
 
 			// Trigger a router.navigate update
-			if ( themes.data.settings.browseDefault === sort ) {
-				themes.router.navigate( themes.router.baseUrl( '/' ) );
-			} else {
-				themes.router.navigate( themes.router.baseUrl( themes.router.browsePath + sort ) );
-			}
+			themes.router.navigate( themes.router.baseUrl( themes.router.browsePath + sort ) );
 		},
 
 		sort: function( sort ) {
@@ -1471,13 +1467,10 @@ window.wp = window.wp || {};
 
 			if ( sorter && sorter.length ) {
 				sorter.addClass( this.activeClass );
-				if ( themes.data.settings.browseDefault === sort ) {
-					themes.utils.title( 'home' );
-				} else {
-					themes.utils.title( sorter.text(), 'browse' );
-				}
-
+				themes.utils.title( sorter.text(), 'browse' );
 				this.browse( sort );
+			} else if ( $('body').hasClass( 'home' ) ) {
+				themes.utils.title( 'home' );
 			} else {
 				themes.utils.title( '404', 'notfound' );
 			}
@@ -1628,7 +1621,6 @@ window.wp = window.wp || {};
 			'search/:query(/page/:page)(/)'  : 'search',
 			'author/:author(/page/:page)(/)' : 'author',
 			':slug(/)'                       : 'preview',
-			''                               : 'sort'
 		},
 
 		baseUrl: function( url ) {
@@ -1720,9 +1712,6 @@ window.wp = window.wp || {};
 
 				self.view.collection.queries.push( themes.data.query );
 
-				if ( ! sort ) {
-					sort = themes.data.settings.browseDefault;
-				}
 				self.view.sort( sort );
 				self.view.trigger( 'theme:close' );
 			});

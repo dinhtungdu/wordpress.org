@@ -8,6 +8,11 @@ function wporg_themes_pre_get_posts( $query ) {
 		return;
 	}
 
+	// Avoid altering the front page query.
+	if ( !empty( $query->query_vars['page_id'] ) && $query->query_vars['page_id'] === get_option( 'page_on_front' ) ) {
+		return;
+	}
+
 	// Don't apply this to non-theme queries
 	if ( !empty( $query->query_vars['post_type'] ) && 'repopackage' != $query->query_vars['post_type'] ) {
 		return;
